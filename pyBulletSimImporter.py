@@ -63,9 +63,10 @@ class ANIM_OT_import_pybullet_sim(Operator, ImportHelper):
                         ".")[-1].lower()
                     # Handle different mesh formats
                     if 'obj' in extension:
-                        bpy.ops.import_scene.obj(
-                            filepath=pybullet_obj['mesh_path'],
-                            axis_forward='Y', axis_up='Z')
+                        bpy.ops.wm.obj_import(filepath=pybullet_obj['mesh_path'], forward_axis='Y', up_axis='Z')
+                        # bpy.ops.import_scene.obj(
+                        #     filepath=pybullet_obj['mesh_path'],
+                        #     axis_forward='Y', axis_up='Z')
                     elif 'dae' in extension:
                         bpy.ops.wm.collada_import(
                             filepath=pybullet_obj['mesh_path'])
