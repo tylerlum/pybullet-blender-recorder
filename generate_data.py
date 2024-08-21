@@ -1,10 +1,12 @@
-from pyBulletSimRecorder import PyBulletRecorder
-from tqdm import tqdm
 import time
+
 import numpy as np
 import pybullet as p
-
 import pybullet_data
+from tqdm import tqdm
+
+from pyBulletSimRecorder import PyBulletRecorder
+
 
 def set_robot_state(robot, q: np.ndarray) -> None:
     num_total_joints = p.getNumJoints(robot)
@@ -33,33 +35,36 @@ p.connect(p.GUI)
 p.setAdditionalSearchPath(pybullet_data.getDataPath())
 p.setRealTimeSimulation(0)
 p.setGravity(0, 0, -9.81)
-p.loadURDF('plane.urdf')
+p.loadURDF("plane.urdf")
 
 recorder = PyBulletRecorder()
 # urdf_path = 'assets/power_drill/power_drill.urdf'
 # urdf_path = '/juno/u/tylerlum/github_repos/curobo/src/curobo/content/assets/robot/kuka_allegro/model.urdf'
-urdf_path = '/juno/u/tylerlum/github_repos/curobo/src/curobo/content/assets/robot/iiwa_allegro_description/iiwa_allegro.urdf'
+urdf_path = "/juno/u/tylerlum/github_repos/curobo/src/curobo/content/assets/robot/iiwa_allegro_description/iiwa_allegro.urdf"
 robot_body_id = p.loadURDF(
     fileName=urdf_path,
     useFixedBase=True,
     # basePosition=(0, 0, 1.4),
     basePosition=(0, 0, 0),
     # baseOrientation=(0.4, 0.3, 0.2, 0.1))
-    baseOrientation=(0, 0, 0, 1))
+    baseOrientation=(0, 0, 0, 1),
+)
 
-drill_urdf_path = '/juno/u/tylerlum/github_repos/pybullet-blender-recorder/assets/power_drill/power_drill.urdf'
+drill_urdf_path = "/juno/u/tylerlum/github_repos/pybullet-blender-recorder/assets/power_drill/power_drill.urdf"
 drill_body_id = p.loadURDF(
     fileName=drill_urdf_path,
     basePosition=(0, 0, 1.4),
-    baseOrientation=(0.4, 0.3, 0.2, 0.1))
+    baseOrientation=(0.4, 0.3, 0.2, 0.1),
+)
 
-crackerbox_urdf_path = '/juno/u/tylerlum/github_repos/bidexhands_isaacgymenvs/assets/urdf/reconstructed_crackerbox/model.urdf'
+crackerbox_urdf_path = "/juno/u/tylerlum/github_repos/bidexhands_isaacgymenvs/assets/urdf/reconstructed_crackerbox/model.urdf"
 # crackerbox_urdf_path = '/juno/u/tylerlum/github_repos/bidexhands_isaacgymenvs/assets/urdf/ycb/003_cracker_box/model.urdf'
 # crackerbox_urdf_path = '/juno/u/tylerlum/github_repos/interactive_robot_visualizer/mesh/crackerbox.urdf'
 crackerbox_body_id = p.loadURDF(
     fileName=crackerbox_urdf_path,
     basePosition=(0, 0.5, 1.4),
-    baseOrientation=(0.4, 0.3, 0.2, 0.1))
+    baseOrientation=(0.4, 0.3, 0.2, 0.1),
+)
 
 # 1. Tell recorder to track a pybullet object
 recorder.register_object(robot_body_id, urdf_path)
@@ -74,5 +79,4 @@ for _ in tqdm(range(500)):
     time.sleep(0.01)
 
 # 3. Dump simulation to a pickle file
-recorder.save('demo.pkl')
-
+recorder.save("demo.pkl")

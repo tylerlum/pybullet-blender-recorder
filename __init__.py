@@ -1,5 +1,3 @@
 from .pyBulletSimRecorder import PyBulletRecorder
 
-__all__ = [
-    'PyBulletRecorder'
-]
+__all__ = ["PyBulletRecorder"]

@@ -1,16 +1,10 @@
-from bpy.types import (
-    Operator,
-    OperatorFileListElement,
-    Panel
-)
-from bpy.props import (
-    StringProperty,
-    CollectionProperty
-)
-from bpy_extras.io_utils import ImportHelper
-import bpy
 import pickle
-from os.path import splitext, join, basename
+from os.path import basename, join, splitext
+
+import bpy
+from bpy.props import CollectionProperty, StringProperty
+from bpy.types import Operator, OperatorFileListElement, Panel
+from bpy_extras.io_utils import ImportHelper
 
 bl_info = {
     "name": "PyBulletSimImporter",
@@ -28,52 +22,49 @@ class ANIM_OT_import_pybullet_sim(Operator, ImportHelper):
     bl_label = "Import simulation"
     bl_idname = "pybulletsim.import"
     bl_description = "Imports a PyBullet Simulation"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
     files: CollectionProperty(
         name="Simulation files",
         type=OperatorFileListElement,
     )
-    directory: StringProperty(subtype='DIR_PATH')
+    directory: StringProperty(subtype="DIR_PATH")
     filename_ext = ".pkl"
-    filter_glob: StringProperty(
-        default='*.pkl',
-        options={'HIDDEN'})
-    skip_frames:  bpy.props.IntProperty(
-        name="Skip Frames", default=10, min=1, max=100)
-    max_frames:  bpy.props.IntProperty(
-        name="Max Frames", default=-1, min=-1, max=100000)
+    filter_glob: StringProperty(default="*.pkl", options={"HIDDEN"})
+    skip_frames: bpy.props.IntProperty(name="Skip Frames", default=10, min=1, max=100)
+    max_frames: bpy.props.IntProperty(name="Max Frames", default=-1, min=-1, max=100000)
 
     def execute(self, context):
         for file in self.files:
             filepath = join(self.directory, file.name)
-            print(f'Processing {filepath}')
-            with open(filepath, 'rb') as pickle_file:
+            print(f"Processing {filepath}")
+            with open(filepath, "rb") as pickle_file:
                 data = pickle.load(pickle_file)
                 collection_name = splitext(basename(filepath))[0]
                 collection = bpy.data.collections.new(collection_name)
                 bpy.context.scene.collection.children.link(collection)
-                context.view_layer.active_layer_collection = \
+                context.view_layer.active_layer_collection = (
                     context.view_layer.layer_collection.children[-1]
+                )
 
                 for obj_key in data:
                     pybullet_obj = data[obj_key]
                     # Load mesh of each link
-                    assert pybullet_obj['type'] == 'mesh'
-                    extension = pybullet_obj['mesh_path'].split(
-                        ".")[-1].lower()
+                    assert pybullet_obj["type"] == "mesh"
+                    extension = pybullet_obj["mesh_path"].split(".")[-1].lower()
                     # Handle different mesh formats
-                    if 'obj' in extension:
-                        bpy.ops.wm.obj_import(filepath=pybullet_obj['mesh_path'], forward_axis='Y', up_axis='Z')
+                    if "obj" in extension:
+                        bpy.ops.wm.obj_import(
+                            filepath=pybullet_obj["mesh_path"],
+                            forward_axis="Y",
+                            up_axis="Z",
+                        )
                         # bpy.ops.import_scene.obj(
                         #     filepath=pybullet_obj['mesh_path'],
                         #     axis_forward='Y', axis_up='Z')
-                    elif 'dae' in extension:
-                        bpy.ops.wm.collada_import(
-                            filepath=pybullet_obj['mesh_path'])
-                    elif 'stl' in extension:
-                        bpy.ops.wm.stl_import(
-                            filepath=pybullet_obj['mesh_path']
-                        )
+                    elif "dae" in extension:
+                        bpy.ops.wm.collada_import(filepath=pybullet_obj["mesh_path"])
+                    elif "stl" in extension:
+                        bpy.ops.wm.stl_import(filepath=pybullet_obj["mesh_path"])
                         # bpy.ops.import_mesh.stl(
                         #     filepath=pybullet_obj['mesh_path'])
                     else:
@@ -84,69 +75,68 @@ class ANIM_OT_import_pybullet_sim(Operator, ImportHelper):
                     parts = 0
                     final_objs = []
                     for import_obj in context.selected_objects:
-                        bpy.ops.object.select_all(action='DESELECT')
+                        bpy.ops.object.select_all(action="DESELECT")
                         import_obj.select_set(True)
-                        if 'Camera' in import_obj.name \
-                                or 'Light' in import_obj.name\
-                                or 'Lamp' in import_obj.name:
+                        if (
+                            "Camera" in import_obj.name
+                            or "Light" in import_obj.name
+                            or "Lamp" in import_obj.name
+                        ):
                             bpy.ops.object.delete(use_global=True)
                         else:
-                            scale = pybullet_obj['mesh_scale']
+                            scale = pybullet_obj["mesh_scale"]
                             if scale is not None:
                                 import_obj.scale.x = scale[0]
                                 import_obj.scale.y = scale[1]
                                 import_obj.scale.z = scale[2]
                             final_objs.append(import_obj)
                             parts += 1
-                    bpy.ops.object.select_all(action='DESELECT')
+                    bpy.ops.object.select_all(action="DESELECT")
                     for obj in final_objs:
-                        if obj.type == 'MESH':
+                        if obj.type == "MESH":
                             obj.select_set(True)
                     if len(context.selected_objects):
-                        context.view_layer.objects.active =\
-                            context.selected_objects[0]
+                        context.view_layer.objects.active = context.selected_objects[0]
                         # join them
                         bpy.ops.object.join()
                     blender_obj = context.view_layer.objects.active
                     blender_obj.name = obj_key
 
                     # Keyframe motion of imported object
-                    for frame_count, frame_data in enumerate(
-                            pybullet_obj['frames']):
+                    for frame_count, frame_data in enumerate(pybullet_obj["frames"]):
                         if frame_count % self.skip_frames != 0:
                             continue
                         if self.max_frames > 1 and frame_count > self.max_frames:
-                            print('Exceed max frame count')
+                            print("Exceed max frame count")
                             break
-                        percentage_done = frame_count / \
-                            len(pybullet_obj['frames'])
-                        print(f'\r[{percentage_done*100:.01f}% | {obj_key}]',
-                              '#' * int(60*percentage_done), end='')
-                        pos = frame_data['position']
-                        orn = frame_data['orientation']
-                        context.scene.frame_set(
-                            frame_count // self.skip_frames)
+                        percentage_done = frame_count / len(pybullet_obj["frames"])
+                        print(
+                            f"\r[{percentage_done*100:.01f}% | {obj_key}]",
+                            "#" * int(60 * percentage_done),
+                            end="",
+                        )
+                        pos = frame_data["position"]
+                        orn = frame_data["orientation"]
+                        context.scene.frame_set(frame_count // self.skip_frames)
                         # Apply position and rotation
                         blender_obj.location.x = pos[0]
                         blender_obj.location.y = pos[1]
                         blender_obj.location.z = pos[2]
-                        blender_obj.rotation_mode = 'QUATERNION'
+                        blender_obj.rotation_mode = "QUATERNION"
                         blender_obj.rotation_quaternion.x = orn[0]
                         blender_obj.rotation_quaternion.y = orn[1]
                         blender_obj.rotation_quaternion.z = orn[2]
                         blender_obj.rotation_quaternion.w = orn[3]
-                        bpy.ops.anim.keyframe_insert_menu(
-                            type='Rotation')
-                        bpy.ops.anim.keyframe_insert_menu(
-                            type='Location')
-        return {'FINISHED'}
+                        bpy.ops.anim.keyframe_insert_menu(type="Rotation")
+                        bpy.ops.anim.keyframe_insert_menu(type="Location")
+        return {"FINISHED"}
 
 
 class VIEW3D_PT_pybullet_recorder(Panel):
-    bl_space_type = 'VIEW_3D'
-    bl_region_type = 'UI'
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
     bl_category = "Animation"
-    bl_label = 'PyBulletSimImporter'
+    bl_label = "PyBulletSimImporter"
 
     def draw(self, context):
         layout = self.layout
