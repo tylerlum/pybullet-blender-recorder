@@ -77,7 +77,6 @@ class PyBulletRecorder:
                 link_id
             )
 
-        breakpoint()
         urdf_parent_folder = urdf_path.parent.absolute()
         object_name = urdf_path.stem
 
@@ -137,12 +136,12 @@ class PyBulletRecorder:
                 type="mesh",
                 mesh_path=link.mesh_path,
                 mesh_scale=link.mesh_scale,
-                frames=[state[link.name] for state in self.frames],
+                frames=[frame[link.name] for frame in self.frames],
             )
         return trajectories
 
     def save(self, path: Path) -> None:
-        print("[Recorder] Saving state to {}".format(path))
+        print("[Recorder] Saving trajectories to {}".format(path))
         pickle.dump(
             {
                 link_name: trajectory.to_dict()
