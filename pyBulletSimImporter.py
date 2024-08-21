@@ -48,6 +48,7 @@ class ANIM_OT_import_pybullet_sim(Operator, ImportHelper):
 
                 for obj_key in data:
                     pybullet_obj = data[obj_key]
+
                     # Load mesh of each link
                     assert pybullet_obj["type"] == "mesh"
                     extension = pybullet_obj["mesh_path"].split(".")[-1].lower()
@@ -58,15 +59,10 @@ class ANIM_OT_import_pybullet_sim(Operator, ImportHelper):
                             forward_axis="Y",
                             up_axis="Z",
                         )
-                        # bpy.ops.import_scene.obj(
-                        #     filepath=pybullet_obj['mesh_path'],
-                        #     axis_forward='Y', axis_up='Z')
                     elif "dae" in extension:
                         bpy.ops.wm.collada_import(filepath=pybullet_obj["mesh_path"])
                     elif "stl" in extension:
                         bpy.ops.wm.stl_import(filepath=pybullet_obj["mesh_path"])
-                        # bpy.ops.import_mesh.stl(
-                        #     filepath=pybullet_obj['mesh_path'])
                     else:
                         print("Unsupported File Format:{}".format(extension))
                         pass

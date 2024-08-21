@@ -22,10 +22,13 @@ class PyBulletRecorder:
             mesh_path: Path,
             mesh_scale: np.ndarray,
         ) -> None:
+            assert len(mesh_scale) == 3, f"len(mesh_scale): {len(mesh_scale)}"
+
             self.body_id = body_id
             self.link_id = link_id
             self.mesh_path = mesh_path
-            self.mesh_scale = mesh_scale
+            self.mesh_scale = (mesh_scale[0], mesh_scale[1], mesh_scale[2])
+
             decomposed_origin = decompose(link_origin)
             orn = mat2quat(decomposed_origin[1])
             orn = [orn[1], orn[2], orn[3], orn[0]]
@@ -74,10 +77,11 @@ class PyBulletRecorder:
                 link_id
             )
 
-        urdf_parent_folder = urdf_path.absolute().parent
+        breakpoint()
+        urdf_parent_folder = urdf_path.parent.absolute()
         object_name = urdf_path.stem
 
-        robot = URDF.load(urdf_path)
+        robot = URDF.load(str(urdf_path))
 
         for link in robot.links:
             link_id = link_name_to_id[link.name]
@@ -129,13 +133,11 @@ class PyBulletRecorder:
     def get_trajectories(self) -> Dict[str, Trajectory]:
         trajectories = {}
         for link in self.link_trackers:
-            trajectories[link.name] = Trajectory.from_dict(
-                {
-                    "type": "mesh",
-                    "mesh_path": link.mesh_path,
-                    "mesh_scale": link.mesh_scale,
-                    "frames": [state[link.name] for state in self.frames],
-                }
+            trajectories[link.name] = Trajectory(
+                type="mesh",
+                mesh_path=link.mesh_path,
+                mesh_scale=link.mesh_scale,
+                frames=[state[link.name] for state in self.frames],
             )
         return trajectories
 

@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 
 @dataclass
 class Frame:
-    position: List[float]
-    orientation: List[float]  # quat xyzw
+    position: Tuple[float, float, float]  # xyz
+    orientation: Tuple[float, float, float, float]  # xyzw
 
     def __post_init__(self):
         assert len(self.position) == 3, f"len(self.position): {len(self.position)}"
@@ -26,13 +26,15 @@ class Frame:
 class Trajectory:
     type: str
     mesh_path: Path
-    mesh_scale: float
+    mesh_scale: Tuple[float, float, float]
     frames: List[Frame]
 
     def __post_init__(self):
         assert self.type in ["mesh"], f"self.type: {self.type}"
         assert self.mesh_path.exists(), f"self.mesh_path: {self.mesh_path}"
-        assert self.mesh_scale > 0, f"self.mesh_scale: {self.mesh_scale}"
+        assert (
+            len(self.mesh_scale) == 3
+        ), f"len(self.mesh_scale): {len(self.mesh_scale)}"
         assert len(self.frames) > 0, f"len(self.frames): {len(self.frames)}"
 
     @classmethod
