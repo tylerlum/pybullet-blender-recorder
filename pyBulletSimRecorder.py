@@ -24,16 +24,16 @@ class PyBulletRecorder:
         ) -> None:
             assert len(mesh_scale) == 3, f"len(mesh_scale): {len(mesh_scale)}"
 
+            self.name = name
             self.body_id = body_id
             self.link_id = link_id
             self.mesh_path = mesh_path
             self.mesh_scale = (mesh_scale[0], mesh_scale[1], mesh_scale[2])
 
-            decomposed_origin = decompose(link_origin)
-            orn = mat2quat(decomposed_origin[1])
-            orn = [orn[1], orn[2], orn[3], orn[0]]
-            self.link_pose = [decomposed_origin[0], orn]
-            self.name = name
+            link_position, link_R, _, _ = decompose(link_origin)
+            quat_xyzw = mat2quat(link_R)[[1, 2, 3, 0]]
+            self.link_position = link_position
+            self.link_orientation = quat_xyzw
 
         def transform(
             self, position: np.ndarray, orientation: np.ndarray
@@ -41,8 +41,8 @@ class PyBulletRecorder:
             return p.multiplyTransforms(
                 position,
                 orientation,
-                self.link_pose[0],
-                self.link_pose[1],
+                self.link_position,
+                self.link_orientation,
             )
 
         def get_keyframe(self) -> Frame:
