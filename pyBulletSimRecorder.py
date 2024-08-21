@@ -1,5 +1,4 @@
 import pybullet as p
-import PySimpleGUI as sg
 import pickle
 from os import getcwd
 from urdfpy import URDF
@@ -99,29 +98,6 @@ class PyBulletRecorder:
         for link in self.links:
             current_state[link.name] = link.get_keyframe()
         self.states.append(current_state)
-
-    def prompt_save(self):
-        layout = [[sg.Text('Do you want to save previous episode?')],
-                  [sg.Button('Yes'), sg.Button('No')]]
-        window = sg.Window('PyBullet Recorder', layout)
-        save = False
-        while True:
-            event, values = window.read()
-            if event in (None, 'No'):
-                break
-            elif event == 'Yes':
-                save = True
-                break
-        window.close()
-        if save:
-            layout = [[sg.Text('Where do you want to save it?')],
-                      [sg.Text('Path'), sg.InputText(getcwd())],
-                      [sg.Button('OK')]]
-            window = sg.Window('PyBullet Recorder', layout)
-            event, values = window.read()
-            window.close()
-            self.save(values[0])
-        self.reset()
 
     def reset(self):
         self.states = []
