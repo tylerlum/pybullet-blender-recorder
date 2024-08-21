@@ -1,5 +1,6 @@
 import pickle
-from os.path import abspath, basename, dirname, splitext
+from pathlib import Path
+from typing import Dict, List
 
 import numpy as np
 import pybullet as p
@@ -7,10 +8,20 @@ from transforms3d.affines import decompose
 from transforms3d.quaternions import mat2quat
 from urdfpy import URDF
 
+from custom_types import Frame, Trajectory
+
 
 class PyBulletRecorder:
     class LinkTracker:
-        def __init__(self, name, body_id, link_id, link_origin, mesh_path, mesh_scale):
+        def __init__(
+            self,
+            name: str,
+            body_id: int,
+            link_id: int,
+            link_origin: np.ndarray,
+            mesh_path: Path,
+            mesh_scale: np.ndarray,
+        ) -> None:
             self.body_id = body_id
             self.link_id = link_id
             self.mesh_path = mesh_path
@@ -21,7 +32,9 @@ class PyBulletRecorder:
             self.link_pose = [decomposed_origin[0], orn]
             self.name = name
 
-        def transform(self, position, orientation):
+        def transform(
+            self, position: np.ndarray, orientation: np.ndarray
+        ) -> np.ndarray:
             return p.multiplyTransforms(
                 position,
                 orientation,
@@ -29,7 +42,7 @@ class PyBulletRecorder:
                 self.link_pose[1],
             )
 
-        def get_keyframe(self):
+        def get_keyframe(self) -> Frame:
             if self.link_id == -1:
                 position, orientation = p.getBasePositionAndOrientation(self.body_id)
                 position, orientation = self.transform(
@@ -42,78 +55,96 @@ class PyBulletRecorder:
                 position, orientation = self.transform(
                     position=link_state[4], orientation=link_state[5]
                 )
-            return {"position": list(position), "orientation": list(orientation)}
+            return Frame.from_dict(
+                {"position": list(position), "orientation": list(orientation)}
+            )
 
-    def __init__(self):
-        self.states = []
-        self.links = []
+    def __init__(self) -> None:
+        self.frames: List[Dict[str, Frame]] = []
+        self.link_trackers: List[PyBulletRecorder.LinkTracker] = []
 
-    def register_object(self, body_id, urdf_path, global_scaling=1):
-        link_id_map = dict()
+    def register_object(
+        self, body_id: int, urdf_path: Path, global_scaling: float = 1
+    ) -> None:
+        link_name_to_id = dict()
         n = p.getNumJoints(body_id)
-        link_id_map[p.getBodyInfo(body_id)[0].decode("gb2312")] = -1
-        for link_id in range(0, n):
-            link_id_map[p.getJointInfo(body_id, link_id)[12].decode("gb2312")] = link_id
+        link_name_to_id[p.getBodyInfo(body_id)[0].decode("gb2312")] = -1
+        for link_id in range(n):
+            link_name_to_id[p.getJointInfo(body_id, link_id)[12].decode("gb2312")] = (
+                link_id
+            )
 
-        dir_path = dirname(abspath(urdf_path))
-        file_name = splitext(basename(urdf_path))[0]
+        urdf_parent_folder = urdf_path.absolute().parent
+        object_name = urdf_path.stem
+
         robot = URDF.load(urdf_path)
+
         for link in robot.links:
-            link_id = link_id_map[link.name]
-            if len(link.visuals) > 0:
-                for i, link_visual in enumerate(link.visuals):
-                    mesh_scale = (
-                        [global_scaling, global_scaling, global_scaling]
-                        if link_visual.geometry.mesh.scale is None
-                        else link_visual.geometry.mesh.scale * global_scaling
+            link_id = link_name_to_id[link.name]
+            if len(link.visuals) == 0:
+                continue
+
+            for i, link_visual in enumerate(link.visuals):
+                mesh_scale = (
+                    np.array([global_scaling, global_scaling, global_scaling])
+                    if link_visual.geometry.mesh.scale is None
+                    else link_visual.geometry.mesh.scale * global_scaling
+                )
+
+                # If link_id == -1 then is base link,
+                # PyBullet will return
+                # inertial_origin @ visual_origin,
+                # so need to undo that transform
+                link_origin = (
+                    (
+                        np.linalg.inv(link.inertial.origin)
+                        if link_id == -1
+                        else np.identity(4)
                     )
-                    self.links.append(
-                        PyBulletRecorder.LinkTracker(
-                            name=file_name + f"_{body_id}_{link.name}_{i}",
-                            body_id=body_id,
-                            link_id=link_id,
-                            # If link_id == -1 then is base link,
-                            # PyBullet will return
-                            # inertial_origin @ visual_origin,
-                            # so need to undo that transform
-                            link_origin=(
-                                np.linalg.inv(link.inertial.origin)
-                                if link_id == -1
-                                else np.identity(4)
-                            )
-                            @ link_visual.origin
-                            * global_scaling,
-                            mesh_path=dir_path
-                            + "/"
-                            + link_visual.geometry.mesh.filename,
-                            mesh_scale=mesh_scale,
-                        )
+                    @ link_visual.origin
+                    * global_scaling
+                )
+
+                mesh_path = urdf_parent_folder / link_visual.geometry.mesh.filename
+
+                self.link_trackers.append(
+                    PyBulletRecorder.LinkTracker(
+                        name=object_name + f"_{body_id}_{link.name}_{i}",
+                        body_id=body_id,
+                        link_id=link_id,
+                        link_origin=link_origin,
+                        mesh_path=mesh_path,
+                        mesh_scale=mesh_scale,
                     )
+                )
 
-    def add_keyframe(self):
-        # Ideally, call every p.stepSimulation()
-        current_state = {}
-        for link in self.links:
-            current_state[link.name] = link.get_keyframe()
-        self.states.append(current_state)
+    def add_keyframe(self) -> None:
+        self.frames.append(
+            {link.name: link.get_keyframe() for link in self.link_trackers}
+        )
 
-    def reset(self):
-        self.states = []
+    def reset(self) -> None:
+        self.frames = []
 
-    def get_formatted_output(self):
-        retval = {}
-        for link in self.links:
-            retval[link.name] = {
-                "type": "mesh",
-                "mesh_path": link.mesh_path,
-                "mesh_scale": link.mesh_scale,
-                "frames": [state[link.name] for state in self.states],
-            }
-        return retval
+    def get_trajectories(self) -> Dict[str, Trajectory]:
+        trajectories = {}
+        for link in self.link_trackers:
+            trajectories[link.name] = Trajectory.from_dict(
+                {
+                    "type": "mesh",
+                    "mesh_path": link.mesh_path,
+                    "mesh_scale": link.mesh_scale,
+                    "frames": [state[link.name] for state in self.frames],
+                }
+            )
+        return trajectories
 
-    def save(self, path):
-        if path is None:
-            print("[Recorder] Path is None.. not saving")
-        else:
-            print("[Recorder] Saving state to {}".format(path))
-            pickle.dump(self.get_formatted_output(), open(path, "wb"))
+    def save(self, path: Path) -> None:
+        print("[Recorder] Saving state to {}".format(path))
+        pickle.dump(
+            {
+                link_name: trajectory.to_dict()
+                for link_name, trajectory in self.get_trajectories().items()
+            },
+            open(path, "wb"),
+        )
