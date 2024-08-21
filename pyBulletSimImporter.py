@@ -113,14 +113,14 @@ class ANIM_OT_import_pybullet_sim(Operator, ImportHelper):
                     # Handle different mesh formats
                     if "obj" in extension:
                         bpy.ops.wm.obj_import(
-                            filepath=trajectory.mesh_path,
+                            filepath=str(trajectory.mesh_path),
                             forward_axis="Y",
                             up_axis="Z",
                         )
                     elif "dae" in extension:
-                        bpy.ops.wm.collada_import(filepath=trajectory.mesh_path)
+                        bpy.ops.wm.collada_import(filepath=str(trajectory.mesh_path))
                     elif "stl" in extension:
-                        bpy.ops.wm.stl_import(filepath=trajectory.mesh_path)
+                        bpy.ops.wm.stl_import(filepath=str(trajectory.mesh_path))
                     else:
                         print("Unsupported File Format:{}".format(extension))
                         pass
@@ -177,8 +177,8 @@ class ANIM_OT_import_pybullet_sim(Operator, ImportHelper):
 
                         # Apply position and rotation
                         blender_obj.location.x = frame.position[0]
-                        blender_obj.location.x = frame.position[1]
-                        blender_obj.location.x = frame.position[2]
+                        blender_obj.location.y = frame.position[1]
+                        blender_obj.location.z = frame.position[2]
                         blender_obj.rotation_mode = "QUATERNION"
                         blender_obj.rotation_quaternion.x = frame.orientation[0]
                         blender_obj.rotation_quaternion.y = frame.orientation[1]
