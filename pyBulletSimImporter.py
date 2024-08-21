@@ -71,8 +71,11 @@ class ANIM_OT_import_pybullet_sim(Operator, ImportHelper):
                         bpy.ops.wm.collada_import(
                             filepath=pybullet_obj['mesh_path'])
                     elif 'stl' in extension:
-                        bpy.ops.import_mesh.stl(
-                            filepath=pybullet_obj['mesh_path'])
+                        bpy.ops.wm.stl_import(
+                            filepath=pybullet_obj['mesh_path']
+                        )
+                        # bpy.ops.import_mesh.stl(
+                        #     filepath=pybullet_obj['mesh_path'])
                     else:
                         print("Unsupported File Format:{}".format(extension))
                         pass
